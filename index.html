@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Công cụ thống kê BHYT và BHXH tự nguyện</title>
+<meta name="description" content="Thống kê BHYT và BHXH tự nguyện từ file Excel theo mã đơn vị nhập trực tiếp.">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{--navy:#153b5b;--blue:#1769aa;--ink:#172b3a;--muted:#617487;--line:#dce5ec;--bg:#f4f7fa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",Arial,sans-serif}
+header{background:linear-gradient(120deg,#123452,#1769aa);color:#fff;padding:28px 18px 36px}.wrap{max-width:1100px;margin:auto;padding:0 18px}
+.brand{font-size:13px;letter-spacing:.12em;text-transform:uppercase;opacity:.85;font-weight:700}h1{margin:8px 0 6px;font-size:clamp(25px,4vw,36px);line-height:1.2}header p{margin:0;max-width:760px;color:#e5f2fb}
+main{margin:-18px auto 40px;position:relative}.panel{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:16px;box-shadow:0 5px 20px #163b5b0a}
+h2{font-size:18px;margin:0 0 14px}.row{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+label{font-weight:650;display:block;margin-bottom:7px}input[type=file],textarea,select{width:100%;border:1px solid #c9d7e2;border-radius:9px;padding:11px;background:#fff;font:inherit}
+textarea{min-height:145px;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.hint{font-size:13px;color:var(--muted);margin:7px 0 0}
+button{border:0;border-radius:9px;padding:11px 16px;font:inherit;font-weight:700;cursor:pointer}.primary{background:var(--blue);color:#fff}.secondary{background:#eaf1f6;color:var(--navy)}button:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}.status{margin-top:13px;padding:11px 13px;border-radius:9px;background:#f0f6fa;color:var(--navy);white-space:pre-wrap}.status.error{background:#fff0f0;color:#a32020}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.stat{border:1px solid var(--line);border-radius:12px;padding:15px;background:#fbfdff}.stat span{font-size:13px;color:var(--muted);display:block}.stat strong{font-size:25px;display:block;color:var(--navy);margin-top:3px}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;min-width:680px}th,td{padding:12px 13px;text-align:left;border-bottom:1px solid var(--line)}th{background:#eef5fa;color:#24465f;font-size:13px}td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}tbody tr:last-child td{border-bottom:0}tfoot td{font-weight:800;background:#f0f7fb;border-top:2px solid #cbdce8}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:0 18px 28px}
+@media(max-width:700px){.row,.stats{grid-template-columns:1fr}.panel{padding:16px}.actions button{flex:1}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="brand">Công cụ báo cáo</div><h1>Thống kê BHYT &amp; BHXH tự nguyện</h1><p>Tải file Excel, nhập các mã đơn vị cần tra cứu trực tiếp trên website, sau đó xuất báo cáo. Dữ liệu được xử lý ngay trong trình duyệt.</p></div></header>
+<main class="wrap">
+<section class="panel">
+<h2>1. Chọn loại thống kê và file dữ liệu</h2>
+<div class="row">
+<div><label for="kind">Loại thống kê</label><select id="kind"><option value="bhyt">Bảo hiểm y tế (BHYT) — cột sldBhytCk</option><option value="bhxh">Bảo hiểm xã hội tự nguyện — cột Số lao động</option></select></div>
+<div><label for="file">Tệp Excel dữ liệu gốc</label><input id="file" type="file" accept=".xlsx,.xls,.xlsm,.csv"></div>
+</div>
+<p class="hint">BHYT cần các cột <b>madvi</b>, <b>tendvi</b>, <b>sldBhytCk</b>. BHXH tự nguyện cần cột mã đơn vị, tên đơn vị và <b>Số lao động</b> (có thể viết hoa/thường hoặc có dấu).</p>
+<div id="fileStatus" class="status" role="status">Vui lòng chọn file Excel dữ liệu cần thống kê.</div>
+</section>
+<section class="panel">
+<h2>2. Nhập mã đơn vị cần tra cứu</h2>
+<label for="codes">Danh sách mã đơn vị (mỗi dòng một mã)</label>
+<textarea id="codes" placeholder="Ví dụ:
+4001254558CT4820557001GD
+4001254558CT4820557002GD"></textarea>
+<p class="hint">Bạn có thể nhập một hoặc nhiều mã. Chỉ những mã được nhập trong ô này mới được tra cứu. Không cần sửa mã trong mã nguồn website.</p>
+<div class="actions"><button id="run" class="primary" disabled>Thực hiện tra cứu</button><button id="clear" class="secondary">Xóa danh sách mã</button><button id="sample" class="secondary">Nạp 7 mã mẫu</button></div>
+<div id="status" class="status" role="status">Chọn file, nhập mã đơn vị rồi nhấn “Thực hiện tra cứu”.</div>
+</section>
+<section class="panel">
+<h2>3. Kết quả thống kê</h2>
+<div class="stats">
+<div class="stat"><span>Số mã đã nhập</span><strong id="nCodes">0</strong></div>
+<div class="stat"><span>Số đơn vị tìm thấy</span><strong id="nFound">—</strong></div>
+<div class="stat"><span>Tổng số người</span><strong id="total">—</strong></div>
+</div>
+<div class="table-wrap"><table><thead><tr><th style="width:70px">STT</th><th>Mã đơn vị</th><th>Tên đơn vị</th><th class="num" id="amountHeader">Số người tham gia BHYT</th></tr></thead>
+<tbody id="results"><tr><td colspan="4" style="text-align:center;color:#617487;padding:28px">Chưa có kết quả tra cứu.</td></tr></tbody>
+<tfoot><tr><td colspan="3">TỔNG CỘNG</td><td class="num" id="grandTotal">—</td></tr></tfoot></table></div>
+<div class="actions"><button id="csv" class="secondary" disabled>Tải CSV</button><button id="xlsx" class="primary" disabled>Tải Excel (.xlsx)</button></div>
+<p class="hint">Nếu một mã xuất hiện nhiều dòng trong dữ liệu nguồn, số liệu được cộng lại. Mã không tìm thấy sẽ được ghi rõ trong bảng để bạn kiểm tra.</p>
+</section>
+<section class="panel"><h2>Bảo mật dữ liệu</h2><p style="margin:0">Tệp Excel được đọc và xử lý trên trình duyệt của bạn; website không gửi nội dung tệp lên máy chủ. Không tải file Excel nghiệp vụ lên kho mã nguồn công khai. Cần kết nối Internet để tải thư viện đọc Excel.</p></section>
+</main><footer>Công cụ thống kê BHYT và BHXH tự nguyện · Xử lý tại trình duyệt</footer>
+<script>
+const SAMPLE_CODES=["4001254558CT4820557001GD","4001254558CT4820557002GD","4001254558CT4820557003GD","4001254558CT4820569001GD","4001254558CT4820569002GD","4001254558CT4820569003GD","4001254558CT4820575001GD"];
+let sourceRows=null, report=[], sourceName="";
+const $=id=>document.getElementById(id);
+const fmt=n=>Number(n||0).toLocaleString('vi-VN');
+function codes(){return [...new Set($('codes').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean))]}
+function norm(v){return String(v??'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9]/g,'')}
+function findCol(headers, aliases){return headers.findIndex(h=>aliases.includes(norm(h)))}
+function setStatus(msg,error=false){$('status').textContent=msg;$('status').className='status'+(error?' error':'')}
+function setFileStatus(msg,error=false){$('fileStatus').textContent=msg;$('fileStatus').className='status'+(error?' error':'')}
+$('file').addEventListener('change',async e=>{
+ const f=e.target.files[0];if(!f)return;
+ try{
+  if(typeof XLSX==='undefined')throw new Error('Không tải được thư viện đọc Excel. Hãy kiểm tra Internet và tải lại trang.');
+  const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});const sheet=wb.Sheets[wb.SheetNames[0]];
+  sourceRows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:false});sourceName=f.name;
+  if(!sourceRows.length)throw new Error('Tệp không có dữ liệu.');
+  $('run').disabled=false;setFileStatus(`Đã đọc: ${f.name}\nTrang tính: ${wb.SheetNames[0]}\nSố dòng kể cả tiêu đề: ${sourceRows.length}`);
+ }catch(err){sourceRows=null;$('run').disabled=true;setFileStatus(err.message||'Không đọc được file.',true)}
+});
+$('codes').addEventListener('input',()=>{$('nCodes').textContent=codes().length});
+$('clear').addEventListener('click',()=>{$('codes').value='';$('nCodes').textContent='0';setStatus('Đã xóa danh sách mã. Hãy nhập mã cần tra cứu.')});
+$('sample').addEventListener('click',()=>{$('codes').value=SAMPLE_CODES.join('\n');$('nCodes').textContent=SAMPLE_CODES.length});
+$('kind').addEventListener('change',()=>{$('amountHeader').textContent=$('kind').value==='bhyt'?'Số người tham gia BHYT':'Số người tham gia BHXH tự nguyện';});
+function parseAmount(v){
+ if(typeof v==='number')return Number.isFinite(v)?v:0;
+ let s=String(v??'').trim().replace(/\s/g,'');if(!s)return 0;
+ if(/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s))s=s.replace(/\./g,'').replace(',','.');
+ else if(/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s))s=s.replace(/,/g,'');
+ else s=s.replace(',','.');
+ const n=Number(s);return Number.isFinite(n)?n:0;
+}
+$('run').addEventListener('click',()=>{
+ try{
+  if(!sourceRows)throw new Error('Vui lòng chọn file Excel trước.');
+  const wanted=codes();$('nCodes').textContent=wanted.length;if(!wanted.length)throw new Error('Hãy nhập ít nhất một mã đơn vị.');
+  const kind=$('kind').value;
+  const codeAliases=['madvi','madonvi','maunit','unitcode','macoso','ma'];
+  const nameAliases=['tendvi','tendonvi','ten don vi','tendonvi'];
+  const amountAliases=kind==='bhyt'?['sldbhytck']:['solaodong','so lao dong','soluonglaodong','sld'];
+  let headerIndex=-1,idx={};
+  for(let i=0;i<Math.min(sourceRows.length,40);i++){
+   const h=sourceRows[i].map(x=>String(x??'').trim());
+   const a=findCol(h,codeAliases),b=findCol(h,nameAliases),c=findCol(h,amountAliases);
+   if(a>=0&&b>=0&&c>=0){headerIndex=i;idx={code:a,name:b,amount:c};break}
+  }
+  if(headerIndex<0){
+   const amountLabel=kind==='bhyt'?'sldBhytCk':'Số lao động';
+   throw new Error(`Không tìm thấy đủ cột mã đơn vị, tên đơn vị và “${amountLabel}” trong 40 dòng đầu của sheet đầu tiên. Hãy kiểm tra tiêu đề cột hoặc thử lưu lại file Excel dạng .xlsx.`);
+  }
+  const set=new Set(wanted),map=new Map();
+  for(let i=headerIndex+1;i<sourceRows.length;i++){
+   const row=sourceRows[i],code=String(row[idx.code]??'').trim();if(!set.has(code))continue;
+   const name=String(row[idx.name]??'').trim(),amount=parseAmount(row[idx.amount]);
+   if(!map.has(code))map.set(code,{madvi:code,tendvi:name,amount});
+   else{const old=map.get(code);old.amount+=amount;if(!old.tendvi&&name)old.tendvi=name}
+  }
+  report=wanted.map(code=>map.get(code)||{madvi:code,tendvi:'Không tìm thấy trong dữ liệu nguồn',amount:0});
+  const found=report.filter(r=>r.tendvi!=='Không tìm thấy trong dữ liệu nguồn').length,total=report.reduce((s,r)=>s+r.amount,0);
+  $('results').innerHTML=report.map((r,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(r.madvi)}</td><td>${escapeHtml(r.tendvi)}</td><td class="num">${fmt(r.amount)}</td></tr>`).join('');
+  $('nFound').textContent=found;$('total').textContent=fmt(total);$('grandTotal').textContent=fmt(total);
+  $('csv').disabled=false;$('xlsx').disabled=false;
+  const missing=report.filter(r=>r.tendvi==='Không tìm thấy trong dữ liệu nguồn').map(r=>r.madvi);
+  setStatus(`Hoàn tất tra cứu ${kind==='bhyt'?'BHYT':'BHXH tự nguyện'} từ ${sourceName}.\nTìm thấy ${found}/${wanted.length} mã; tổng số người: ${fmt(total)}.${missing.length?'\nKhông tìm thấy các mã:\n'+missing.join('\n'):''}`,missing.length>0);
+ }catch(err){setStatus(err.message||'Có lỗi khi tra cứu.',true)}
+});
+function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function exportRows(){const label=$('kind').value==='bhyt'?'Số người tham gia BHYT':'Số người tham gia BHXH tự nguyện';return [['Số thứ tự','Mã đơn vị','Tên đơn vị',label],...report.map((r,i)=>[i+1,r.madvi,r.tendvi,r.amount]),['','','TỔNG CỘNG',report.reduce((s,r)=>s+r.amount,0)]]}
+$('csv').addEventListener('click',()=>{const csv=exportRows().map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=$('kind').value==='bhyt'?'Thong_ke_BHYT.csv':'Thong_ke_BHXH_tu_nguyen.csv';a.click();URL.revokeObjectURL(a.href)});
+$('xlsx').addEventListener('click',()=>{const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(exportRows());ws['!cols']=[{wch:12},{wch:32},{wch:60},{wch:32}];XLSX.utils.book_append_sheet(wb,ws,'Thong ke');XLSX.writeFile(wb,$('kind').value==='bhyt'?'Thong_ke_BHYT.xlsx':'Thong_ke_BHXH_tu_nguyen.xlsx')});
+</script></body></html>
